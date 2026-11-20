@@ -486,7 +486,6 @@ function m24City(city,col){
 }
 function m24Layout(s){
  const key=LandscapeD34.key+':'+s.station;if(s.m24Key===key)return s.m24Items;s.m24Key=key;const items=s.m24Items=[];
- if(RouteD2.junctions.some(j=>s.station>j.start-140&&s.station<j.start+j.length+140))return items;
  d364Safety();const buildings=[];
  for(let offset=-48;offset<=48;offset+=24){const t={station:s.station+offset};for(const o of d364BaseLayout(t))if(o.type===0){const p=routeSample(t.station-o.z,o.lat);buildings.push({x:p.x,z:p.z,w:o.w,d:o.deep})}}
  const cell=Math.round((d34Plan().origin+s.station)/24),profile=d34At(s.station);
@@ -494,9 +493,9 @@ function m24Layout(s){
   const seed=2500+k*23+(side+1)*107,r=i=>d362Hash(cell,seed+i);
   if(r(0)>(profile.kind===0?.78:profile.kind===1?.48:.66))continue;
   const lat=side*(25+k*15+r(1)*7),z=(r(2)-.5)*18,station=s.station-z,p=routeSample(station,lat);
-  const kind=profile.kind===0?(r(3)<.24?'crate':r(3)<.4?'fence':'bush'):(r(3)<.25?'rock':r(3)<.42?'fence':r(3)<.72?'tree':'bush');
+  const kind=profile.kind===0?(r(3)<.18?'tree':r(3)<.32?'crate':r(3)<.44?'fence':'bush'):(r(3)<.25?'rock':r(3)<.42?'fence':r(3)<.72?'tree':'bush');
   const radius=kind==='fence'?2.3:kind==='tree'?2.5:1.8;
-  if(!d364Clear(p.x,p.z,radius,buildings))continue;
+  if(!d364Clear(p.x,p.z,radius,buildings)||!m26RoundClear(p,radius))continue;
   items.push({kind,lat,z,station,radius,scale:.7+r(4)*.4,tall:r(5)>.55,col:[0x536f40,0x697c48,0x7b8953][Math.floor(r(6)*3)]});
  }
  return items;
@@ -504,19 +503,19 @@ function m24Layout(s){
 function m24Decor(){
  const d=WorldM24;if(!MobileM1.enabled){for(const m of d.meshes)m.visible=false;return}
  if(!d.meshes.length){
-  for(const geometry of [DepthD362.meshes[2].geometry,DepthD362.meshes[3].geometry]){const m=new THREE.InstancedMesh(geometry,material(0xffffff),d.capacity);m.count=0;m.castShadow=false;m.receiveShadow=false;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);DepthD362.group.add(m);d.meshes.push(m)}
+  for(const geometry of [DepthD362.meshes[2].geometry,DepthD362.meshes[3].geometry,ArtM26.stones||(ArtM26.stones=new THREE.IcosahedronGeometry(1,1))]){const m=new THREE.InstancedMesh(geometry,geometry===DepthD362.meshes[3].geometry?m25Materials().leaf:material(0xffffff),d.capacity);m.count=0;m.castShadow=false;m.receiveShadow=false;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);DepthD362.group.add(m);d.meshes.push(m)}
  }
- const counts=[0,0];
+ const counts=[0,0,0];
  function put(type,x,y,z,w,h,depth,col){const i=counts[type]++,m=d.meshes[type];if(i>=d.capacity)throw Error('M2.4 decoration budget exceeded');const a=m.instanceMatrix.array,k=i*16;a[k]=w;a[k+5]=h;a[k+10]=depth;a[k+12]=x;a[k+13]=y;a[k+14]=z;a[k+15]=1;const colors=m.userData.m24Colors||(m.userData.m24Colors=[]);if(colors[i]!==col){colors[i]=col;m.setColorAt(i,d.color.setHex(col));m.instanceColor.needsUpdate=true}}
  for(const s of scenery)for(const o of m24Layout(s)){
   const station=o.station,x=trackCenterAt(station)+o.lat,z=levelDistance+3-station,p=RouteD2.junctions.length?routeMap(x,z):{x,z},y=d362Ground(station,x),v=o.scale;
   if(o.kind==='crate'){put(0,p.x,y+.48*v,p.z,1.1*v,.96*v,1.1*v,0x746344);put(0,p.x,y+.48*v,p.z+.57*v,.13*v,.9*v,.06,0x443f32)}
   else if(o.kind==='fence'){for(const dx of [-1.5,1.5])put(0,p.x+dx,y+.65,p.z,.13,1.3,.15,0x635844);put(0,p.x,y+.8,p.z,3.2,.19,.14,0x7e7258)}
-  else if(o.kind==='rock'){put(1,p.x,y+.3*v,p.z,1.2*v,.45*v,.85*v,0x777b6a)}
+  else if(o.kind==='rock'){put(2,p.x,y+.3*v,p.z,1.2*v,.45*v,.85*v,0x777b6a)}
   else if(o.kind==='tree'){const h=(o.tall?5.4:3.7)*v;put(0,p.x,y+h*.32,p.z,.24*v,h*.64,.24*v,0x61533c);put(1,p.x,y+h*.66,p.z,1.5*v,h*.33,1.35*v,o.col);put(1,p.x+.35*v,y+h*.86,p.z-.2*v,.95*v,h*.18,.9*v,0x72874c)}
   else{put(1,p.x,y+.54*v,p.z,1.35*v,.65*v,1.05*v,o.col);put(1,p.x+.7*v,y+.34*v,p.z+.35*v,.8*v,.44*v,.7*v,0x53653c)}
  }
- for(let i=0;i<2;i++){const m=d.meshes[i];m.count=counts[i];m.visible=m.count>0;m.instanceMatrix.needsUpdate=true}
+ for(let i=0;i<3;i++){const m=d.meshes[i];m.count=counts[i];m.visible=m.count>0;m.instanceMatrix.needsUpdate=true}
 }
 function m24Asphalt(c){
  // Draw onto the existing texture only. The M2.3 station-based UVs stay intact.
@@ -556,7 +555,7 @@ function m25Bake(g){
  g.traverse(o=>{if(!o.isMesh)return;let b=batches.get(o.material);if(!b)batches.set(o.material,b={p:[],n:[],uv:[],col:[],far:{p:[],n:[],uv:[],col:[]}});const geo=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,o.matrixWorld));const p=geo.attributes.position,n=geo.attributes.normal,uv=geo.attributes.uv,tint=new THREE.Color(o.userData.tint??0xffffff);
  for(let i=0;i<p.count;i++){b.p.push(p.getX(i),p.getY(i),p.getZ(i));b.n.push(n.getX(i),n.getY(i),n.getZ(i));b.uv.push(uv?uv.getX(i):0,uv?uv.getY(i):0);const shade=.9+.1*clamp(p.getY(i)/12,0,1);b.col.push(tint.r*shade,tint.g*shade,tint.b*shade)}if(!o.userData.m25Detail){const count=p.count;for(const key of ['p','n','uv','col'])b.far[key].push(...b[key].slice(-count*(key==='uv'?2:3)))}geo.dispose();old.push(o)});
  for(const o of old){o.parent.remove(o);o.geometry.dispose()}
- for(const [material,b] of batches){const geo=new THREE.BufferGeometry();for(const [name,a,size]of [['position',b.p,3],['normal',b.n,3],['uv',b.uv,2],['color',b.col,3]])geo.setAttribute(name,new THREE.Float32BufferAttribute(a,size));geo.computeBoundingSphere();const far=new THREE.BufferGeometry();for(const [name,key,size]of [['position','p',3],['normal','n',3],['uv','uv',2],['color','col',3]])far.setAttribute(name,new THREE.Float32BufferAttribute(b.far[key],size));far.computeBoundingSphere();const m=new THREE.Mesh(geo,material);m.userData.m25Near=geo;m.userData.m25Far=far;m.castShadow=false;m.receiveShadow=false;g.add(m)}
+ for(const [material,b] of batches){const geo=new THREE.BufferGeometry();for(const [name,a,size]of [['position',b.p,3],['normal',b.n,3],['uv',b.uv,2],['color',b.col,3]])geo.setAttribute(name,new THREE.Float32BufferAttribute(a,size));geo.computeBoundingSphere();const far=new THREE.BufferGeometry();for(const [name,key,size]of [['position','p',3],['normal','n',3],['uv','uv',2],['color','col',3]])far.setAttribute(name,new THREE.Float32BufferAttribute(b.far[key],size));far.computeBoundingSphere();const m=new THREE.Mesh(geo,material);m.userData.m25Near=geo;m.userData.m25Far=b.far.p.length===b.p.length?geo:far;if(m.userData.m25Far===geo)far.dispose();m.castShadow=false;m.receiveShadow=false;g.add(m)}
 }
 function m25Block(index,station){
  const g=new THREE.Group(),m=m25Materials(),r=k=>d362Hash(index+251,k),palette=[0xb2aa94,0x929f99,0xa7947e,0x89969b,0xc1b49b];
@@ -633,6 +632,131 @@ function m25Update(){
  if(RouteD2.road&&a.baseRoad)RouteD2.road.material=ribbon.material;
 }
 
+// M2.6: mobile world-art rollout. Fixed existing scenery pools, no simulation RNG.
+const ArtM26={ready:false,groundUniform:{value:0},leaf:null,stones:null};
+function m26LeafGeometry(){
+ if(ArtM26.leaf)return ArtM26.leaf;
+ const p=[],n=[],uv=[],colors=[];
+ for(let k=0;k<3;k++){
+  const g=new THREE.SphereGeometry(1,5,3).toNonIndexed(),a=g.attributes.position,b=g.attributes.normal,t=g.attributes.uv;
+  const cx=[-.28,.29,.02][k],cy=[-.1,-.03,.34][k],cz=[.13,-.1,.03][k],sx=[.57,.55,.46][k],sy=[.6,.62,.52][k],sz=[.59,.57,.5][k];
+  for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),q=1+.055*Math.sin(x*5+z*4+k);p.push(cx+x*sx*q,((cy+y*sy+.7)/1.56)*1.702-.851,cz+z*sz*q);n.push(b.getX(i),b.getY(i),b.getZ(i));uv.push(t.getX(i),t.getY(i));const shade=.78+.17*(y+1)/2+k*.025;colors.push(shade,Math.min(1,shade+.025),shade*.94)}g.dispose();
+ }
+ const out=new THREE.BufferGeometry();out.setAttribute('position',new THREE.Float32BufferAttribute(p,3));out.setAttribute('normal',new THREE.Float32BufferAttribute(n,3));out.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));out.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));out.computeBoundingSphere();return ArtM26.leaf=out;
+}
+function m26Drop(g){g.traverse(o=>{if(o.isMesh){o.geometry.dispose();if(o.userData.m25Near&&o.userData.m25Near!==o.geometry)o.userData.m25Near.dispose();if(o.userData.m25Far&&o.userData.m25Far!==o.geometry)o.userData.m25Far.dispose()}});g.removeFromParent()}
+function m26Scenery(s,index){
+ const city=m26CityBlock(index,index*24),green=city.userData.m26Green;
+ m26Drop(s.city);s.city=city;s.g.add(city,green);s.m26Green=green;
+ // Replace the old common spherical vegetation and pavement batches, keep lamps,
+ // parked wrecks and poles. All original generation/RNG has already run.
+ const remove=new Set([0x586e43,0x6c7e4d,0x829157,0x6d7d43,0x84945b,0x5e6044,0x7f8570]);
+ for(const o of [...s.g.children])if(o.isMesh&&remove.has(o.material.color?.getHex()))m26Drop(o);
+ // Farms use the same material vocabulary without becoming city blocks.
+ m26Drop(s.rural);s.rural=new THREE.Group();for(const side of [-1,1])m26House(s.rural,side,index,false,true);m25Bake(s.rural);s.g.add(s.rural);
+}
+
+function m26Blade(g,w,h,d,col,x,y,z){
+ const a=[-w,0,-d/2,w,0,d/2,w*.3,h,d*.25, w,0,d/2,-w,0,-d/2,w*.3,h,d*.25];
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(a,3));geo.computeVertexNormals();const o=new THREE.Mesh(geo,m25Materials().leaf);o.userData.tint=col;o.userData.m25Detail=true;o.position.set(x,y-h/2,z);g.add(o);return o;
+}
+
+function m26House(g,side,index,shop=false,barn=false){
+ const m=m25Materials(),x=side*17,w=barn?6.4:shop?8:6.8,h=barn?3.8:shop?3.6:4.4,d=8;
+ const wall=[0xa9a28c,0x8e9d94,0xb09a81,0x9a998a][index%4];
+ function b(mat,col,xx,y,z,ww,hh,dd,detail=false){const o=new THREE.Mesh(new THREE.BoxGeometry(ww,hh,dd),mat);o.userData.tint=col;o.userData.m25Detail=detail;o.position.set(xx,y,z);g.add(o);return o}
+ b(m.wall,wall,x,h/2,0,w,h,d);b(m.stone,0x677265,x,.25,0,w+.16,.5,d+.16);
+ for(const sign of [-1,1])b(m.wood,barn?0x71604c:0x596b66,x+sign*w*.25,h+.65,0,w*.57,.24,d+.6).rotation.z=-sign*.36;
+ b(m.metal,0x68736c,x,h+1.23,0,.2,.14,d+.8);
+ for(const dx of [-2.1,2.1]){b(m.stone,0xbec2ac,x+dx,2,4.09,1.6,1.7,.2);b(m.glass,0x345054,x+dx,2,4.22,1.25,1.35,.06);b(m.metal,0xa3afa2,x+dx,2,4.27,.055,1.35,.05,true);if((index+Math.round(dx))%3===0)b(m.wood,0x7c6c4e,x+dx,2.1,4.32,1.5,.15,.08,true).rotation.z=.21}
+ const face=x-side*w/2;for(const z of [-2,1.1]){b(m.stone,0xbec2ac,face-side*.09,2,z,.2,1.7,1.6);b(m.glass,0x365356,face-side*.22,2,z,.06,1.35,1.25)}
+ b(m.wood,0x52655a,x,1.15,4.12,barn?2.1:1.35,2.3,.22);b(m.metal,0x98a79a,x+.42,1.1,4.25,.06,.35,.04,true);
+ b(m.stone,0x899584,x,.1,4.55,2.3,.2,1.05);
+ if(shop)b(m.metal,0x718a7b,x,2.7,4.65,w*.78,.18,1.25);
+ else b(m.stone,0x8c8d7c,x+1.8,h+1.1,-1.5,.65,1.5,.7);
+ for(let k=0;k<3;k++){const o=new THREE.Mesh(m26LeafGeometry().clone(),m.leaf);o.userData.tint=k%2?0x667a49:0x536b41;o.position.set(x-w/2+.7+k*.6,.65+k*.35,4.35);o.scale.set(.45,.48,.23);g.add(o)}
+}
+// Store undeformed geometry independently for each LOD. Existing height/curve
+// fitting is reused after switching, preventing stale flat meshes on hills.
+function m26Lod(s){
+ if(!MobileM1.enabled)return;const far=s.station-levelDistance>(V5.low?110:150);
+ s.g.traverse(o=>{if(!o.isMesh||!o.userData.m25Near)return;const chosen=far?o.userData.m25Far:o.userData.m25Near;if(o.geometry===chosen)return;
+ const originals=o.userData.m26Originals||(o.userData.m26Originals=new Map());if(o.userData.d35Original)originals.set(o.geometry,o.userData.d35Original);o.geometry=chosen;
+ if(originals.has(chosen))o.userData.d35Original=originals.get(chosen);else delete o.userData.d35Original;s.d35Key='';s.d35Bent=true;
+ });
+}
+function m26RoundClear(p,r){
+ let shift=0;for(const j of RouteD2.junctions){const z=-(j.start+j.span)+shift;
+  // Conservative circles around the six existing outer-neighbourhood buildings.
+  for(const a of [.74,1.57,2.40,-.74,-1.57,-2.40])if(Math.hypot(p.x-(j.centerX+Math.sin(a)*(j.R+15)),p.z-(z+Math.cos(a)*(j.R+15)))<r+11)return false;
+  for(const station of [j.start-18,j.start+j.length+18])for(const side of [-1,1]){const b=routeSample(station,side*21);if(Math.hypot(p.x-b.x,p.z-b.z)<r+11)return false}
+  shift+=j.length-2*j.span;
+ }return true;
+}
+function m26Surfaces(){
+ if(!MobileM1.enabled)return;
+ if(!ArtM26.ready){
+  // Reuse the approved asphalt texture globally with one texture sample only.
+  m25Road();ArtM25.road.map=ArtM25.roadTexture;ArtM25.road.onBeforeCompile=()=>{};ArtM25.road.customProgramCacheKey=()=> 'm26-standard-asphalt';
+  ArtM25.road.color.copy(ribbon.material.color);ArtM25.road.roughness=ribbon.material.roughness;ArtM25.road.metalness=ribbon.material.metalness;ribbon.material=ArtM25.road;
+  const cv=document.createElement('canvas');cv.width=cv.height=256;const c=cv.getContext('2d');c.fillStyle='#c6c8ac';c.fillRect(0,0,256,256);
+  for(let i=0;i<28;i++)for(const ox of [-256,0,256])for(const oy of [-256,0,256]){const x=d362Hash(i,26001)*256+ox,y=d362Hash(i,26002)*256+oy,r=18+d362Hash(i,26003)*32,grad=c.createRadialGradient(x,y,0,x,y,r);grad.addColorStop(0,i%3?'rgba(72,87,51,.16)':'rgba(127,108,72,.22)');grad.addColorStop(1,'rgba(127,108,72,0)');c.fillStyle=grad;c.fillRect(x-r,y-r,r*2,r*2)}
+  for(let i=0;i<1800;i++){c.fillStyle=i%2?'rgba(255,243,200,.07)':'rgba(62,77,45,.07)';c.fillRect(d362Hash(i,26004)*256,d362Hash(i,26005)*256,1,2)}
+  const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;
+  ground.material=ground.material.clone();ground.material.onBeforeCompile=shader=>{shader.uniforms.m26Ground={value:t};shader.uniforms.m26Distance=ArtM26.groundUniform;shader.vertexShader='uniform float m26Distance; varying vec2 m26GroundUv;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','vec3 m26GroundWorld=(modelMatrix*vec4(transformed,1.0)).xyz;\nm26GroundUv=vec2(m26GroundWorld.x,m26Distance+3.0-m26GroundWorld.z)*.025;\n#include <project_vertex>');shader.fragmentShader='uniform sampler2D m26Ground; varying vec2 m26GroundUv;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=texture2D(m26Ground,m26GroundUv).rgb;')};ground.material.customProgramCacheKey=()=> 'm26-world-ground';for(const s of scenery)s.d34.green.traverse(o=>{if(o.isMesh&&[0x83845b,0x76844e,0x696b47].includes(o.material.color?.getHex())){o.material.onBeforeCompile=ground.material.onBeforeCompile;o.material.customProgramCacheKey=ground.material.customProgramCacheKey;o.material.needsUpdate=true}});ArtM26.ready=true;
+ }
+ if(ElevationD36A.terrain)ElevationD36A.terrain.material=ground.material;
+ if(RouteD2.road)RouteD2.road.material=ribbon.material;
+ ArtM26.groundUniform.value=d341Origin(level)+levelDistance;
+}
+
+function m26CityBlock(index,station){
+ const g=new THREE.Group(),green=new THREE.Group();let target=g;const m=m25Materials(),r=k=>d362Hash(index+251,k),palette=[0xb2aa94,0x929f99,0xa7947e,0x89969b,0xc1b49b];
+ const add=(geo,mat,tint,x,y,z,sx=1,sy=1,sz=1)=>{const o=new THREE.Mesh(geo,mat);o.userData.tint=tint;o.position.set(x,y,z);o.scale.set(sx,sy,sz);target.add(o);return o};
+ const b=(mat,tint,x,y,z,w,h,d)=>{const o=add(new THREE.BoxGeometry(w,h,d),mat,tint,x,y,z);o.userData.m25Detail=mat!==m.glass&&Math.min(w,h,d)<.2&&Math.max(w,h,d)<2;return o};
+ function foliage(x,y,z,w,h,d,seed,leaf=false){
+  const geo=new THREE.IcosahedronGeometry(1,leaf?0:1),a=geo.attributes.position;
+  // Deterministic coordinate noise, identical at duplicate vertices: no cracks.
+  for(let i=0;i<a.count;i++){const px=a.getX(i),py=a.getY(i),pz=a.getZ(i),q=1+.1*Math.sin(px*5+py*3+pz*7+seed);a.setXYZ(i,px*q,py*(1+.06*Math.cos(px*4+pz*3+seed)),pz*q)}geo.computeVertexNormals();
+  const o=add(geo,m.leaf,[0x536e40,0x67874c,0x7d9657,0x455f3b][seed%4],x,y,z,w,h,d);o.userData.m25Detail=leaf;return o;
+ }
+ for(const side of [-1,1]){target=g;
+  const seed=index*31+(side+1)*11,x=side*(16+r(seed)*1.6),w=7.7+r(seed+1)*1.6,dep=11,h=8+Math.floor(r(seed+2)*4)*2.2,col=palette[(index+(side+1))%palette.length],edge=0xc7c4ae;
+  b(m.wall,col,x,h/2,0,w,h,dep);b(m.stone,0x626c64,x, .45,0,w+.16,.9,dep+.16);
+  // A narrower rooftop storey / parapet rather than another identical box.
+  if(index%3!==1){b(m.wall,col,x+side*.55,h+1.05,-1.1,w*.68,2.1,dep*.7);b(m.metal,0x515d59,x+side*.55,h+2.2,-1.1,w*.72,.18,dep*.74)}
+  for(const z of [-5.5,5.5])b(m.stone,edge,x,h+.22,z,w+.18,.44,.18);
+  for(const dx of [-w/2,w/2])b(m.stone,edge,x+dx,h+.22,0,.18,.44,dep);
+  b(m.metal,0x57615c,x-1.6,h+.45,-2,1.5,.65,1.5);
+  // Street-facing windows: shadow reveal, inset glass, projecting sills/lintels.
+  const face=x-side*w/2;
+  for(let floor=0,y=2.1;y<h-.65;y+=2.2,floor++)for(let j=0;j<4;j++){
+   const z=-3.8+j*2.5+(index%3===1&&floor%2?.18:0),broken=(j+floor+index)%7===0;
+   b(m.stone,0x555c55,face-side*.035,y,z,.08,1.65,1.42);
+   b(m.glass,broken?0x263936:0x45636b,face-side*.085,y,z,.035,1.3,1.1);
+   for(const dz of [-.65,.65])b(m.stone,edge,face-side*.15,y,z+dz,.23,1.6,.12);
+   for(const dy of [-.77,.77])b(m.stone,edge,face-side*.16,y+dy,z,.27,.13,1.42);
+   b(m.metal,0x9bafa9,face-side*.17,y,z,.07,1.3,.055);
+   if(broken){const board=b(m.wood,0x857254,face-side*.3,y,z,.12,.16,1.5);board.rotation.x=.23}
+   if(floor===1&&j===1&&index%2===0){b(m.stone,0x8b9384,face-side*.55,y-.83,z,1.05,.18,1.9);b(m.metal,0x4b5b54,face-side*1.05,y-.3,z,.07,.07,1.9);for(const dz of [-.85,0,.85])b(m.metal,0x4b5b54,face-side*1.05,y-.55,z+dz,.07,.55,.07)}
+  }
+  // Front facade repeats the window vocabulary with a small entrance bay.
+  for(let y=3.6;y<h-.7;y+=2.2)for(let j=0;j<3;j++){const xx=x+(j-1)*2.3;b(m.stone,0x555c55,xx,y,5.55,1.55,1.7,.1);b(m.glass,0x3b5359,xx,y,5.62,1.22,1.35,.035);for(const dx of [-.7,.7])b(m.stone,edge,xx+dx,y,5.7,.12,1.65,.23);b(m.stone,edge,xx,y-.79,5.72,1.6,.14,.3)}
+  b(m.stone,0x59645a,x,1.2,5.58,2.2,2.4,.18);b(m.glass,0x2c4243,x,1.13,5.7,1.7,2.2,.08);b(m.metal,index%2?0x657c76:0x966d51,x,2.55,6.05,2.7,.18,1.2);b(m.metal,0x99aaa0,x+.55,1.05,5.78,.06,.4,.06);
+  // Selective climbing leaves, not a uniform green blanket across every facade.
+  if(index%3===0)for(let k=0;k<12;k++){const yy=.65+k*.36;foliage(face-side*.4,yy,-4.7+Math.sin(k*.7)*.24,.2,.29,.36,k+index,true)}
+  target=green;
+  // Existing sidewalk dimensions; stone joints are baked colour, no overlays.
+  for(let k=0;k<6;k++)b(m.stone,k%3?0x929989:0x838c7c,side*7.65,-.035,-10+k*4,2.1,.16,4);
+  // A small tree in each forecourt, crowns well behind the pedestrian verge.
+  const tx=side*11.4,tz=index%2?9:-9,th=4.6+r(seed+4)*1.4;
+  add(new THREE.CylinderGeometry(.11,.21,th*.72,7),m.wood,0x6b6148,tx,th*.36,tz);
+  for(let k=0;k<5;k++){const a=k*2.4;foliage(tx+Math.cos(a)*.65,th*.73+(k%2)*.55,tz+Math.sin(a)*.65,1.05+r(k+seed)*.22,1.05+(index%3)*.16,1.1,index+k)}
+  // Layered sprays of elongated leaves above thin woody stems.
+  for(let j=0;j<3;j++){const bx=side*(10.1+j*.8),bz=-tz+(j-1)*.7;for(let k=0;k<4;k++){const a=k*1.9+j,xx=bx+Math.cos(a)*.28,zz=bz+Math.sin(a)*.32;b(m.wood,0x6a6847,xx,.29,zz,.045,.58,.045);for(let q=0;q<3;q++){const o=foliage(xx+Math.cos(a+q)*.2,.28+q*.19,zz+Math.sin(a+q)*.2,.33,.115,.18,index+j+k+q,true);o.rotation.y=a+q;o.rotation.z=(q-1)*.25}}}
+ }
+ m25Bake(g);m25Bake(green);g.userData.m26Green=green;g.name='M2.5 reference station '+station;g.userData.station=station;return g;
+}
 function sceneryBlock(index){const g=new THREE.Group(),city=new THREE.Group(),rural=new THREE.Group();g.add(city,rural);const z=index*24-280;
  for(const side of [-1,1]){const bx=side*(13+rand()*3),h=5+rand()*10,w=6+rand()*4,depth=9+rand()*6,col=sceneryPalette[index%5];
  cube(city,w,h,depth,col,bx,h/2,0);cube(city,w+.2,.22,depth+.2,0x48544b,bx,h,0);
@@ -651,7 +775,7 @@ function sceneryBlock(index){const g=new THREE.Group(),city=new THREE.Group(),ru
  if(index%2===0){const lamp=new THREE.Group();cube(lamp,.13,5.6,.13,0x45564d,0,2.8,0);cube(lamp,1.3,.12,.15,0x45564d,-side*.5,5.5,0);cube(lamp,.6,.08,.25,0xd8c791,-side*.9,5.42,0);lamp.position.set(side*7.1,0,-6);lamp.rotation.z=side*.055;g.add(lamp)}
  }
  compact(city);if(MobileM1.enabled)m24City(city,sceneryPalette[index%5]);compact(rural); // Other scenery is merged separately, retaining selectable building sets.
- g.remove(city,rural);compact(g);g.add(city,rural);g.position.z=z;scene.add(g);scenery.push({g,city,rural,z});return g;
+ g.remove(city,rural);compact(g);g.add(city,rural);g.position.z=z;scene.add(g);scenery.push({g,city,rural,z});if(MobileM1.enabled)m26Scenery(scenery[scenery.length-1],index);return g;
 }
 // D3.4: station-anchored scenery only. Fixed 14-slot pool; no simulation RNG or colliders.
 const LandscapeD34={key:'',plan:null,labels:['STADT','STADTRAND','LAND','DORF']};
@@ -694,10 +818,10 @@ function d34Models(s,index){
  const green=new THREE.Group(),edge=new THREE.Group(),village=new THREE.Group();
  for(const g of [green,edge,village]){g.userData.d34=true;s.g.add(g)}
  let seed=(index+1)*1973;const r=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
- const block=(g,w,h,d,c,x,y,z)=>cube(g,w,h,d,c,x,y,z);
- function rock(g,x,y,z,sx,sy,sz,c){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(1,0),material(c));m.position.set(x,Math.max(y,sy*.851),z);m.scale.set(sx,sy,sz);m.castShadow=true;g.add(m)}
+ const block=(g,w,h,d,c,x,y,z)=>MobileM1.enabled&&c===0x84945b&&w<=.1?m26Blade(g,w,h,d,c,x,y,z):cube(g,w,h,d,c,x,y,z);
+ function rock(g,x,y,z,sx,sy,sz,c){const plant=MobileM1.enabled&&[0x586e43,0x6c7e4d].includes(c),m=new THREE.Mesh(plant?m26LeafGeometry().clone():new THREE.IcosahedronGeometry(1,0),plant?m25Materials().leaf:material(c));m.userData.tint=c;m.position.set(x,Math.max(y,sy*.851),z);m.scale.set(sx,sy,sz);m.castShadow=true;g.add(m)}
  function tree(g,x,z,h){block(g,.42,h*.68,.42,0x5e6044,x,h*.34,z);rock(g,x,h*.68,z,2.3,h*.3,2.1,0x586e43);rock(g,x+.8,h*.83,z-.4,1.7,h*.22,1.8,0x6c7e4d)}
- function house(g,side,shop=false){const x=side*17,w=shop?8:6.8,h=shop?3.4:4.2,d=8;
+ function house(g,side,shop=false){if(MobileM1.enabled){m26House(g,side,index,shop);return}const x=side*17,w=shop?8:6.8,h=shop?3.4:4.2,d=8;
   block(g,w,h,d,shop?0x88968b:sceneryPalette[index%5],x,h/2,0);
   // Two pitched roof planes; low polygon geometry, no external asset.
   for(const sign of [-1,1]){const roof=block(g,w*.57,.24,d+.6,0x6c5b45,x+sign*w*.25,h+.7,0);roof.rotation.z=-sign*.36}
@@ -728,7 +852,7 @@ function d34Models(s,index){
   block(village,1.5,.15,2.4,0x685e44,x,.5,0);
  }
  if(index%4===1){const x=11;block(village,.12,2.5,.12,0x45564d,x,1.25,5);const sign=makeSign('ALTENRIED',2.8,'#b1ac94');sign.position.set(x,2.25,5);sign.rotation.z=.08;village.add(sign)}
- for(const g of [green,edge,village]){const old=new Set();g.traverse(o=>{if(o.geometry)old.add(o.geometry)});compact(g);for(const geo of old)geo.dispose();g.visible=false}
+ for(const g of [green,edge,village]){const old=new Set();g.traverse(o=>{if(o.geometry)old.add(o.geometry)});if(MobileM1.enabled)m25Bake(g);else compact(g);for(const geo of old)geo.dispose();g.visible=false}
  s.d34={green,edge,village,index,station:null,key:''};
 }
 function d34Apply(s,station){
@@ -761,7 +885,7 @@ function d363Facade(){
  }
  c.fillStyle='#6c7168';c.fillRect(22,474,40,38);c.fillStyle='#b3b6a8';c.fillRect(49,494,3,3);
  for(let i=0;i<80;i++){const x=d362Hash(i,37)*440,y=d362Hash(i,91)*510;c.fillStyle=i%2?'rgba(70,77,63,.17)':'rgba(244,243,223,.22)';c.fillRect(x,y,1+d362Hash(i,7)*8,3+d362Hash(i,9)*18)}
- if(MobileM1.enabled)m24Wear(c,448,512);
+ if(MobileM1.enabled){m24Wear(c,448,512);for(let y=0;y<8;y++){c.fillStyle="rgba(237,232,206,.38)";c.fillRect(0,57+y*59,448,2);c.fillStyle="rgba(43,57,50,.22)";c.fillRect(0,59+y*59,448,2)}}
  // Right-hand strip is plain plaster for horizontal roof/base faces.
  c.fillStyle='#c0c3b6';c.fillRect(452,0,60,512);
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=2;
@@ -773,8 +897,8 @@ function d363Facade(){
 
 function d362Init(){
  const d=DepthD362;if(d.group)return;d.group=new THREE.Group();d.group.name='D3.6B.2 background depth';scene.add(d.group);
- const box=new THREE.BoxGeometry(1,1,1),crown=new THREE.IcosahedronGeometry(1,0),facade=d363Facade();
- for(let i=0;i<4;i++){const m=new THREE.InstancedMesh(i===0?facade.geometry:i===3?crown:box,i===0?facade.material:material(i===3?0xffffff:i===1?0x293f3e:0x5e6044),d.capacity[i]);m.count=0;m.castShadow=false;m.receiveShadow=false;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);d.group.add(m);d.meshes.push(m)}
+ const box=new THREE.BoxGeometry(1,1,1),crown=MobileM1.enabled?m26LeafGeometry():new THREE.IcosahedronGeometry(1,0),facade=d363Facade();
+ for(let i=0;i<4;i++){const m=new THREE.InstancedMesh(i===0?facade.geometry:i===3?crown:box,i===0?facade.material:(MobileM1.enabled&&i===3?m25Materials().leaf:material(i===3?0xffffff:i===1?0x293f3e:0x5e6044)),d.capacity[i]);m.count=0;m.castShadow=false;m.receiveShadow=false;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);d.group.add(m);d.meshes.push(m)}
 }
 function d364BaseLayout(s){
  const key=LandscapeD34.key+':'+s.station;if(s.d362Key===key)return s.d362Items;s.d362Key=key;
@@ -859,9 +983,9 @@ function d34UpdateScenery(){
   // Reassign only at >=309 m ahead, beyond maximum 245 m weather fog.
   const station=i*24+Math.ceil((worldDistance-27-i*24)/336)*336-origin;
   s.z=levelDistance+3-station;s.g.position.z=s.z;s.g.position.x=trackCenterAt(station);
-  d34Apply(s,station);d35FitScenery(s);
+  d34Apply(s,station);m26Lod(s);d35FitScenery(s);
  }
- d362Update();m25Update();
+ d362Update();if(MobileM1.enabled)m26Surfaces();
  const badge=document.querySelector('#routeBadge');if(badge)badge.textContent=LandscapeD34.labels[d34At(levelDistance).kind]+' / '+(V5.night?'NACHT':'TAG');
 }
 
@@ -985,7 +1109,7 @@ function elevationRenderD36A(original,s,c){
 
 function d35FitScenery(s){
  const key=level+':'+s.station;if(s.d35Key===key)return;s.d35Key=key;
- const station=s.station,center=trackCenterAt(station),near=Math.max(d35Rural(station-16).weight,d35Rural(station).weight,d35Rural(station+16).weight);
+ const station=s.station,center=trackCenterAt(station),near=MobileM1.enabled?1:Math.max(d35Rural(station-16).weight,d35Rural(station).weight,d35Rural(station+16).weight);
  const elevated=Math.max(heightAtD36A(station-32),heightAtD36A(station),heightAtD36A(station+32))>0,fit=near||elevated;
  if(!fit&&!s.d35Bent)return;s.d35Bent=!!fit;const offsets=new Map();
  s.g.traverse(o=>{if(!o.isMesh)return;const a=o.geometry.attributes.position;
@@ -1904,9 +2028,9 @@ function levelDistanceTarget(n){const seconds=n<=4?50+(n-1)*3:n<=8?75+(n-5)*8:n<
 function d22SceneryInit(){if(RouteD2.surroundings)return;const root=RouteD2.surroundings=new THREE.Group();root.name='D2.2 roundabout neighbourhood';scene.add(root);RouteD2.blocks=[];
  for(let k=0;k<10;k++){const source=scenery[k%scenery.length],out=new THREE.Group(),city=new THREE.Group(),rural=new THREE.Group();out.add(city,rural);const sourceScale=source.city.scale.y;source.city.scale.y=1;source.g.updateMatrixWorld(true);const inverse=new THREE.Matrix4().copy(source.g.matrixWorld).invert();
  source.g.traverse(o=>{if(!o.isMesh)return;let owner=o.parent;while(owner&&owner!==source.g){if(owner.userData.d34)return;owner=owner.parent}let ancestor=o.parent,variant=out;while(ancestor&&ancestor!==source.g){if(ancestor===source.city)variant=city;if(ancestor===source.rural)variant=rural;ancestor=ancestor.parent}
- const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();if(o.userData.d35Original){g.attributes.position.array.set(o.userData.d35Original.position);if(o.userData.d35Original.normal)g.attributes.normal.array.set(o.userData.d35Original.normal)}g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,o.matrixWorld));const p=g.attributes.position,attrs={};for(const key of ['position','normal','uv'])if(g.attributes[key])attrs[key]=[];
+ if(MobileM1.enabled&&variant===out&&(!o.material.vertexColors||o.material===m25Materials().stone))return;const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();if(o.userData.d35Original){g.attributes.position.array.set(o.userData.d35Original.position);if(o.userData.d35Original.normal)g.attributes.normal.array.set(o.userData.d35Original.normal)}g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inverse,o.matrixWorld));const p=g.attributes.position,attrs={};for(const key of ['position','normal','uv','color'])if(g.attributes[key])attrs[key]=[];
  for(let i=0;i<p.count;i+=3){if((p.getX(i)+p.getX(i+1)+p.getX(i+2))/3<=0)continue;for(const key in attrs){const a=g.attributes[key];for(let j=0;j<3;j++)for(let d=0;d<a.itemSize;d++)attrs[key].push(a.array[(i+j)*a.itemSize+d])}}
- if(attrs.position.length){const geo=new THREE.BufferGeometry();for(const key in attrs)geo.setAttribute(key,new THREE.Float32BufferAttribute(attrs[key],g.attributes[key].itemSize));geo.computeBoundingSphere();const mesh=new THREE.Mesh(geo,o.material);mesh.castShadow=true;mesh.receiveShadow=true;variant.add(mesh)}g.dispose();});source.city.scale.y=sourceScale;source.g.updateMatrixWorld(true);root.add(out);RouteD2.blocks.push({g:out,city,rural});
+ if(attrs.position.length){const geo=new THREE.BufferGeometry();for(const key in attrs)geo.setAttribute(key,new THREE.Float32BufferAttribute(attrs[key],g.attributes[key].itemSize));geo.computeBoundingSphere();const mesh=new THREE.Mesh(geo,o.material);mesh.castShadow=!MobileM1.enabled;mesh.receiveShadow=!MobileM1.enabled;variant.add(mesh)}g.dispose();});source.city.scale.y=sourceScale;source.g.updateMatrixWorld(true);root.add(out);RouteD2.blocks.push({g:out,city,rural});
  }
 }
 function d22SceneryPlace(j,originZ){d22SceneryInit();const root=RouteD2.surroundings;root.visible=!!j;if(!j)return;root.position.set(j.centerX,0,-j.start-j.span-originZ+3);const angles=[.74,1.57,2.40,-.74,-1.57,-2.40];RouteD2.blocks.forEach((b,i)=>{b.city.visible=true;b.rural.visible=false;if(i<6){const a=angles[i],r=j.R-2;b.g.position.set(Math.sin(a)*r,0,Math.cos(a)*r);b.g.rotation.set(0,a-Math.PI/2,0)}else{const side=i%2?1:-1;const station=i<8?j.start-18:j.start+j.length+18;b.g.position.set(trackCenterAt(station)-j.centerX+side*4.5,0,(i<8?1:-1)*(j.span+18));b.g.rotation.set(0,side<0?Math.PI:0,0)}});root.visible=Math.abs(root.position.z)<260;}
@@ -1935,7 +2059,7 @@ function d33DecorateIsland(j,parent){
  grass:mat(0x7a8650,1),stone:mat(0x8b8d7a,1),edge:mat(0xa5a18b,1),weathered:mat(0x515a4c,1),water:mat(0x3e6558,.38,.14),rust:mat(0x78503b,1),petal:mat(0xc8bc80,1),paint:mat(0xb1b19a,1),moss:mat(0x63734a,1)
  };
  const geometries={
- crown:new THREE.IcosahedronGeometry(1,0),bush:new THREE.DodecahedronGeometry(1,0),
+ crown:MobileM1.enabled?m26LeafGeometry().clone():new THREE.IcosahedronGeometry(1,0),bush:MobileM1.enabled?m26LeafGeometry().clone():new THREE.DodecahedronGeometry(1,0),
  drum:new THREE.CylinderGeometry(1,1,1,18),trunk:new THREE.CylinderGeometry(.7,1,1,6),rock:new THREE.IcosahedronGeometry(1,0),box:new THREE.BoxGeometry(1,1,1)
  };
  const blades=[];for(let a=0;a<3;a++){const t=a*Math.PI/3,dx=Math.cos(t),dz=Math.sin(t);
@@ -2086,7 +2210,7 @@ function d2Render(original,s,c){if(s!==scene||c!==camera||garage||!RouteD2.junct
  d35UpdateMarks(true);
  const sceneryGroups=new Set(scenery.map(o=>o.g));
  for(const o of scene.children){if(skip.has(o)||o.isLight)continue;if(o===particleMesh){vertices(o);continue}if(sceneryGroups.has(o)){const station=levelDistance+3-o.position.z;if(RouteD2.junctions.some(j=>station>j.start-22&&station<j.start+j.length+22)){visibility.push([o,o.visible]);o.visible=false;continue}// Map roadside children separately so no building occupies the island.
- for(const variant of o.children)for(const child of variant.children){const oldP=child.position.clone(),oldQ=child.rotation.clone();const world=child.getWorldPosition(new THREE.Vector3());const mp=routeMap(world.x,world.z);if(Math.abs(world.x-trackCenterAt(levelDistance+3-world.z))<7)continue;records.push([child,oldP,oldQ]);child.position.set(mp.x-o.position.x,oldP.y,mp.z-o.position.z);child.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(yAxis,mp.angle-trackAngleAt(mp.station)))}continue}object(o)}
+ if(MobileM1.enabled){const oldP=o.position.clone(),oldQ=o.rotation.clone(),mp=routeMap(oldP.x,oldP.z);records.push([o,oldP,oldQ]);o.position.set(mp.x,oldP.y,mp.z);continue}for(const variant of o.children)for(const child of variant.children){const oldP=child.position.clone(),oldQ=child.rotation.clone();const world=child.getWorldPosition(new THREE.Vector3());const mp=routeMap(world.x,world.z);if(Math.abs(world.x-trackCenterAt(levelDistance+3-world.z))<7)continue;records.push([child,oldP,oldQ]);child.position.set(mp.x-o.position.x,oldP.y,mp.z-o.position.z);child.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(yAxis,mp.angle-trackAngleAt(mp.station)))}continue}object(o)}
  object(headlight);for(const p of Weather.puddles)object(p);
  for(const j of RouteD2.junctions){const origin=routeSample(levelDistance,3.25);let shift=0;for(const prev of RouteD2.junctions){if(prev===j)break;shift+=prev.length-2*prev.span}j.mesh.position.set(j.centerX,0,-j.start-j.span+shift-origin.z+3);j.mesh.visible=Math.abs(j.mesh.position.z)<245;d22SceneryPlace(j,origin.z);}
  const cp=c.position.clone(),cq=c.rotation.clone(),vehicle=routeMap(car.position.x,3); // car already mapped: use saved simulation position instead.
