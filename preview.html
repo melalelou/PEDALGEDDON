@@ -240,7 +240,29 @@ function m21Init(){const icon=document.createElement('div');icon.id='m21Pause';i
  canvas.addEventListener('pointerdown',m21TapDown);canvas.addEventListener('pointermove',m21TapMove);canvas.addEventListener('pointerup',m21TapUp);for(const type of ['pointercancel','pointerleave','lostpointercapture'])canvas.addEventListener(type,m21Cancel);
  addEventListener('pointerdown',e=>{if(e.target!==canvas||e.isPrimary===false)m21Cancel()},{capture:true});for(const type of ['blur','pagehide','resize','orientationchange'])addEventListener(type,m21Cancel);document.addEventListener('visibilitychange',m21Cancel);
  document.getElementById('m1InputNote').textContent='◀ / ▶ halten zum Lenken · Mitte kurz antippen für Pause / Weiter · AUTO-BOOST automatisch';m21Sync();}
-function m21Projection(){const fov=MobileM1.enabled?55:65;if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
+// M2.7 mobile presentation only. Set enabled:false for the exact M2.6.1 camera.
+// Units: metres / degrees. No model, physics, HUD or save-data changes.
+const CameraM27={
+ enabled:true,fov:48,lookAhead:6,slopeLookLimit:.18,slopeHeightLimit:.65,
+ response:3.5,speedDistance:.12,brakeDistance:-.08,
+ // [distance behind centre, height above road, look-target height]
+ vehicles:[[5.8,2.15,.95],[6,2.05,1],[6.1,2.1,1],[6.3,2.15,1],[6.8,2.85,1.1],[7,2.75,1.05],[7.8,3.3,1.4]],
+ motion:0,distance:5.8,height:2.15,target:1.05,vehicle:-1
+};
+function m27Update(dt){
+ if(!MobileM1.enabled||!CameraM27.enabled)return;
+ const c=CameraM27,p=c.vehicles[active]||c.vehicles[0],a=1-Math.exp(-Math.max(0,dt)*c.response);
+ const brake=keys.arrowdown||keys.s||keys[' '],wanted=brake?c.brakeDistance:c.speedDistance*clamp(speed/Math.max(1,specs[active].max),0,1);
+ if(dt===0||c.vehicle!==active){c.vehicle=active;c.motion=0;c.distance=p[0];c.height=p[1];c.target=p[2]}
+ else{c.motion+=(wanted-c.motion)*a;c.distance=p[0]+c.motion;c.height=p[1];c.target=p[2]}
+}
+function m27Pose(c,x,z,yaw,lag=0){
+ const p=CameraM27,sx=Math.sin(yaw),cz=Math.cos(yaw);
+ c.position.set(x+sx*p.distance+cz*lag,p.height,z+cz*p.distance-sx*lag);
+ c.lookAt(x-sx*p.lookAhead,p.target,z-cz*p.lookAhead);
+}
+
+function m21Projection(){const fov=MobileM1.enabled?(CameraM27.enabled?CameraM27.fov:55):65;if(camera.fov!==fov){camera.fov=fov;camera.updateProjectionMatrix()}}
 
 // M2 input adapter: independent pointer ownership, same steering scalar as keyboard.
 const TouchM2={pointers:new Map(),left:false,right:false,root:null,buttons:[],visible:false};
@@ -1193,7 +1215,8 @@ function elevationRenderD36A(original,s,c){
   // to preserve framing on the stronger D3.6B.1 slopes.
   c.position.y+=h;
   const sx=Math.sin(FollowD351.yaw),cz=Math.cos(FollowD351.yaw);
-  if(MobileM1.enabled)c.lookAt(car.position.x-sx*5,.9+h+clamp(heightAtD36A(levelDistance+cz*5)-h,-.35,.35),car.position.z-cz*5);
+  if(MobileM1.enabled&&CameraM27.enabled){const p=CameraM27,look=p.lookAhead;c.position.y+=clamp(heightAtD36A(levelDistance-cz*p.distance)-h,-p.slopeHeightLimit,p.slopeHeightLimit);c.lookAt(car.position.x-sx*look,p.target+h+clamp(heightAtD36A(levelDistance+cz*look)-h,-p.slopeLookLimit,p.slopeLookLimit),car.position.z-cz*look);}
+  else if(MobileM1.enabled)c.lookAt(car.position.x-sx*5,.9+h+clamp(heightAtD36A(levelDistance+cz*5)-h,-.35,.35),car.position.z-cz*5);
   else c.lookAt(car.position.x-sx*15,1.2+h+clamp(heightAtD36A(levelDistance+cz*15)-h,-.9,.9),car.position.z-cz*15);
   scene.updateMatrixWorld(true);c.updateMatrixWorld(true);return original(s,c);
  }finally{
@@ -1332,7 +1355,7 @@ function resetFollowD351(){
  updateFollowD351(0);
 }
 function updateFollowD351(dt){
- m21Projection();
+ m21Projection();m27Update(dt);
  const lane=car.position.x-trackCenterAt(levelDistance),a=1-Math.exp(-dt*6);
  FollowD351.lane+=(lane-FollowD351.lane)*a;
  // Only steering within the road may trail, never accumulated world movement.
@@ -1340,7 +1363,9 @@ function updateFollowD351(dt){
  const target=trackAngleAt(levelDistance+8);
  FollowD351.yaw+=Math.atan2(Math.sin(target-FollowD351.yaw),Math.cos(target-FollowD351.yaw))*a;
  const sx=Math.sin(FollowD351.yaw),cz=Math.cos(FollowD351.yaw),lag=(FollowD351.lane-lane)*.5;
- if(MobileM1.enabled){
+ if(MobileM1.enabled&&CameraM27.enabled){
+  m27Pose(camera,car.position.x,car.position.z,FollowD351.yaw,lag);
+ }else if(MobileM1.enabled){
   camera.position.set(car.position.x+sx*8.4+cz*lag,3.6,car.position.z+cz*8.4-sx*lag);
   camera.lookAt(car.position.x-sx*5,.9,car.position.z-cz*5);
  }else{
@@ -2310,7 +2335,7 @@ function d2Render(original,s,c){if(s!==scene||c!==camera||garage||!RouteD2.junct
  for(const j of RouteD2.junctions){const origin=routeSample(levelDistance,3.25);let shift=0;for(const prev of RouteD2.junctions){if(prev===j)break;shift+=prev.length-2*prev.span}j.mesh.position.set(j.centerX,0,-j.start-j.span+shift-origin.z+3);j.mesh.visible=Math.abs(j.mesh.position.z)<245;d22SceneryPlace(j,origin.z);}
  const cp=c.position.clone(),cq=c.rotation.clone(),vehicle=routeMap(car.position.x,3); // car already mapped: use saved simulation position instead.
  const rec=records.find(r=>r[0]===car),sim=rec?rec[1]:car.position,pp=routeMap(sim.x,3),angle=pp.angle,back=new THREE.Vector3(Math.sin(angle),0,Math.cos(angle));
- if(MobileM1.enabled){c.position.set(pp.x+back.x*8.4,3.6,pp.z+back.z*8.4);c.lookAt(pp.x-back.x*5,.9,pp.z-back.z*5)}else{c.position.set(pp.x+back.x*10,6.8,pp.z+back.z*10);const look=routeSample(levelDistance+17,Math.max(1.4,sim.x-trackCenterAt(levelDistance))),origin=routeSample(levelDistance,3.25);c.lookAt(look.x,1.15,look.z-origin.z+3)}
+ if(MobileM1.enabled&&CameraM27.enabled){m27Pose(c,pp.x,pp.z,angle)}else if(MobileM1.enabled){c.position.set(pp.x+back.x*8.4,3.6,pp.z+back.z*8.4);c.lookAt(pp.x-back.x*5,.9,pp.z-back.z*5)}else{c.position.set(pp.x+back.x*10,6.8,pp.z+back.z*10);const look=routeSample(levelDistance+17,Math.max(1.4,sim.x-trackCenterAt(levelDistance))),origin=routeSample(levelDistance,3.25);c.lookAt(look.x,1.15,look.z-origin.z+3)}
  for(const o of [Weather.rainMesh,Weather.dustMesh]){records.push([o,o.position.clone(),o.rotation.clone()]);o.position.x+=pp.x-sim.x;}
  const skyPos=Weather.sky.position.clone(),sunPos=Weather.sunDisc.position.clone(),birdPos=Weather.birds.position.clone();Weather.sky.position.copy(c.position);Weather.sunDisc.position.x+=c.position.x-cp.x;Weather.birds.position.x+=c.position.x-cp.x;
  try{return original(s,c)}finally{c.position.copy(cp);c.rotation.copy(cq);Weather.sky.position.copy(skyPos);Weather.sunDisc.position.copy(sunPos);Weather.birds.position.copy(birdPos);for(const [o,v]of visibility)o.visible=v;for(const [o,p,q]of records){o.position.copy(p);o.rotation.copy(q)}for(const [a,copy]of buffers){a.array.set(copy);a.needsUpdate=true}for(const [m,copy]of instanceRecords){m.instanceMatrix.array.set(copy);m.instanceMatrix.needsUpdate=true}ribbon.visible=oldRibbon;RouteD2.road.visible=false;scene.updateMatrixWorld(true);c.updateMatrixWorld(true);}
