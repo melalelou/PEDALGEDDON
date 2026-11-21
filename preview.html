@@ -495,7 +495,7 @@ function m24Layout(s){
   const lat=side*(25+k*15+r(1)*7),z=(r(2)-.5)*18,station=s.station-z,p=routeSample(station,lat);
   const kind=profile.kind===0?(r(3)<.18?'tree':r(3)<.32?'crate':r(3)<.44?'fence':'bush'):(r(3)<.25?'rock':r(3)<.42?'fence':r(3)<.72?'tree':'bush');
   const radius=kind==='fence'?2.3:kind==='tree'?2.5:1.8;
-  if(!d364Clear(p.x,p.z,radius,buildings)||!m26RoundClear(p,radius))continue;
+  if(!d364Clear(p.x,p.z,radius,buildings)||!m26RoundClear(p,radius)||(MobileM1.enabled&&!d261DetailClear(p.x,p.z,radius)))continue;
   items.push({kind,lat,z,station,radius,scale:.7+r(4)*.4,tall:r(5)>.55,col:[0x536f40,0x697c48,0x7b8953][Math.floor(r(6)*3)]});
  }
  return items;
@@ -955,7 +955,102 @@ function d362Ground(station,x){
  const v=clamp((lat-e.x[j])/(e.x[j+1]-e.x[j]),0,1),k=row*cols+j,y00=a.getY(k),y01=a.getY(k+1),y10=a.getY(k+cols),y11=a.getY(k+cols+1);
  return u+v<=1?y00*(1-u-v)+y01*v+y10*u:y11*(u+v-1)+y10*(1-v)+y01*(1-u);
 }
+// M2.6.1: stable, road-aware parcels in world coordinates. Decoration only.
+const Density261={key:'',plots:[],bins:new Map(),extra:null,color:new THREE.Color(),active:[],stamp:'',origin:new THREE.Vector3()};
+function d261Plan(){
+ const d=Density261,key=LandscapeD34.key;if(d.key===key)return d.plots;
+ d.key=key;d.plots=[];d.bins=new Map();d.stamp='';d364Safety();
+ const origin=d341Origin(level),first=Math.floor((origin-320)/32)*32-origin;
+ const occupied=new Map(),cellSize=32;
+ const overlaps=(x,z,r)=>{for(let a=Math.floor((x-r-16)/cellSize);a<=Math.floor((x+r+16)/cellSize);a++)for(let b=Math.floor((z-r-16)/cellSize);b<=Math.floor((z+r+16)/cellSize);b++)for(const p of occupied.get(a+':'+b)||[])if(Math.hypot(x-p.x,z-p.z)<r+p.radius+1)return true;return false};
+ const candidates=[];
+ for(let station=first;station<levelLength+320;station+=32)for(const side of [-1,1])for(let row=0;row<3;row++)candidates.push({station,side,row,salt:0});
+ // A curved road's lateral coordinates fold over at large offsets. Fill the
+ // surrounding district in real world coordinates with the same parcel rules.
+ for(let jx=0;jx<RouteD2.junctions.length;jx++){const j=RouteD2.junctions[jx],c=UrbanD364.islands[jx];
+  for(let gx=-4;gx<=4;gx++)for(let gz=-4;gz<=4;gz++){
+   const salt=3000+(gx+4)*101+(gz+4)*17+jx*2000,seed=Math.round((origin+j.start)/32),x=c.x+gx*32+(d362Hash(seed,salt)-.5)*5,z=c.z+gz*32+(d362Hash(seed,salt+1)-.5)*5;
+   if(Math.hypot(x-c.x,z-c.z)>j.R+115)continue;
+   const station=z>c.z+j.span?j.start-(z-c.z-j.span):z<c.z-j.span?j.start+j.length+(c.z-j.span-z):j.start+j.length/2;
+   candidates.push({station,side:gx<0?-1:1,row:Math.min(2,Math.floor(Math.abs(gx)/2)),salt,point:{x,z}});
+  }
+ }
+ for(const {station,side,row,salt,point}of candidates){
+  const world=origin+station,id=Math.round(world/32),profile=d34At(station);
+   const seed=row*53+(side+1)*137+salt,r=i=>d362Hash(id,26100+seed+i),patch=d362Hash(Math.floor(world/192),26200+side*13+row);
+   const urban=profile.urban,kind=urban>.72?'urban':profile.kind===3?'village':urban>.22?'edge':'rural';
+   const occupiedChance=kind==='urban'?.94:kind==='village'?.8:kind==='edge'?.68:patch<.26?.28:.82;
+   if(r(0)>occupiedChance)continue;
+   const st=point?station:station+(r(1)-.5)*8,lat=point?point.x-trackCenterAt(st):side*(36+row*32+(r(2)-.5)*5),p=point||routeSample(st,lat),radius=12.8;
+   if(!d364Clear(p.x,p.z,radius,[])||!m26RoundClear(p,radius)||overlaps(p.x,p.z,radius))continue;
+   const plot={id:id+':'+side+':'+row+':'+salt,x:p.x,z:p.z,station:st,lat,radius,kind,row,urban,seed:id*31+seed,items:[]};
+   const add=(type,x,z,w,h,depth,col,extra={})=>plot.items.push({type,x,z,w,h,depth,col,...extra});
+   const tree=(x,z,h,w)=>{add(2,x,z,w,h,w,[0x536f40,0x697e4c,0x748953][Math.floor(r(70+x+z)*3)]);};
+   const bush=(x,z,w)=>add(4,x,z,w,.6+r(80+x+z)*.6,w*.85,0x596f46);
+   const box=(x,z,w,h,depth,col,y=0)=>add(5,x,z,w,h,depth,col,{y});
+   const building=(x,z,w,h,depth,col,roof=0)=>{add(0,x,z,w,h,depth,col,{detail:true,roof});};
+   if(kind==='urban'){
+    // A residential/commercial block with an annex and an open courtyard.
+    building(-3,-2,8.5,8+Math.floor(r(3)*6)*2.1,11,[0x8d998d,0x9d9985,0x8c999d,0xb0a18c][Math.floor(r(4)*4)]);
+    if(r(5)<.8)building(5.2,2.7,5.5,3.2+r(6)*3,7,0x9a9b87,1);
+    box(-4,8,8,.42,.3,0x72796b);box(7,-6,.3,1.2,6,0x7d8171);
+    if(r(7)<.42){box(3,-6,1.8,.75,3.7,0x696e5e,.3);box(3,-6.3,1.55,.65,1.8,0x314746,1.05);}
+    tree(-7,5,3.8+r(8)*1.5,1.3);bush(7,7,1.5);bush(-8,-7,1.1);
+    plot.surface=0x777d70;
+   }else if(kind==='edge'||kind==='village'){
+    building(-2,-3,8,4.2+r(3)*2,9,[0xa5a28b,0x9ba38f,0xb0a088][Math.floor(r(4)*3)],1);
+    building(5,4,4.5,2.5,5.5,0x818974,2);
+    box(-5,8,7,.75,.18,0x7e775f);box(6,-6,.18,.8,4,0x7e775f);
+    tree(-7,5,4+r(5)*2,1.6);bush(2,7,1.6);bush(7,-7,1.25);plot.surface=0x8b8b72;
+   }else if(patch>.72&&r(3)<.45){
+    // Farmstead: compact barn, service yard, hedge and broken boundary fence.
+    building(-2,-2,9,4.6,11,0x8c8266,2);box(6,5,3,2.2,3.5,0x827554);
+    for(const z of [-7,-3,1,5])box(-9,z,.18,.9,2.7,0x7d755b);
+    tree(6,-6,5.5,1.8);bush(-6,7,1.6);plot.surface=0x8d8b68;
+   }else{
+    // Woodland / meadow pockets retain open glades between clustered plants.
+    const dense=patch>.44,count=dense?5:2;
+    for(let k=0;k<count;k++){const a=k*2.4+r(10)*2,x=Math.cos(a)*(3+r(12+k)*4),z=Math.sin(a)*(3+r(20+k)*4);tree(x,z,4+r(30+k)*6,1.3+r(40+k)*1.4)}
+    bush(-6,2,1.6);bush(3,6,1.2);if(!dense)box(5,-4,1.6,.45,1.3,0x7c8070);
+    if(patch<.3)for(const z of [-7,-2,3])box(-9,z,.15,.8,3,0x7c755b);
+   }
+   // Slightly broken ground boundaries tie buildings to a plot, not a lawn.
+   if(plot.surface){box(-8,-8,2,.3,.6,0x717769);bush(7,5,1.1);}
+   d.plots.push(plot);const c=Math.floor(p.x/cellSize)+':'+Math.floor(p.z/cellSize);if(!occupied.has(c))occupied.set(c,[]);occupied.get(c).push(plot);
+   const bk=Math.floor(p.x/64)+':'+Math.floor(p.z/64);if(!d.bins.has(bk))d.bins.set(bk,[]);d.bins.get(bk).push(plot);
+ }
+ return d.plots;
+}
+function d261DetailClear(x,z,r){d261Plan();for(const p of Density261.plots)if(Math.abs(x-p.x)<13+r&&Math.abs(z-p.z)<13+r)return false;return true;}
+function d261Update(){
+ d362Init();d261Plan();const d=DepthD362,a=Density261;
+ if(!a.extra){a.extra=new THREE.InstancedMesh(d.meshes[2].geometry,material(0xffffff),1536);a.extra.count=0;a.extra.castShadow=false;a.extra.receiveShadow=false;a.extra.frustumCulled=false;a.extra.instanceMatrix.setUsage(THREE.DynamicDrawUsage);d.group.add(a.extra);}
+ const origin=routeSample(levelDistance,3.25),range=V5.low?195:255,cellX=Math.floor(origin.x/16),cellZ=Math.floor(origin.z/16),stamp=a.key+':'+cellX+':'+cellZ+':'+V5.low;
+ if(a.stamp!==stamp){a.stamp=stamp;const list=[];for(let x=Math.floor((origin.x-range-24)/64);x<=Math.floor((origin.x+range+24)/64);x++)for(let z=Math.floor((origin.z-range-24)/64);z<=Math.floor((origin.z+range+24)/64);z++)for(const p of a.bins.get(x+':'+z)||[])if(Math.hypot(p.x-origin.x,p.z-origin.z)<range+24)list.push(p);
+  a.active=[];a.omitted=0;a.closestOmitted=Infinity;const used=[0,0,0,0,0],limits=[...d.capacity,1536];
+  for(const p of list.sort((p,q)=>Math.hypot(p.x-origin.x,p.z-origin.z)-Math.hypot(q.x-origin.x,q.z-origin.z))){const cost=[0,0,0,0,p.surface?1:0];for(const o of p.items){if(o.type===0){cost[0]++;cost[1]+=2}else if(o.type===2){cost[2]++;cost[3]+=2}else if(o.type===4)cost[3]++;else cost[4]++}if(a.active.length>=140||cost.some((v,i)=>used[i]+v>limits[i])){a.omitted++;a.closestOmitted=Math.min(a.closestOmitted,Math.hypot(p.x-origin.x,p.z-origin.z));continue}a.active.push(p);for(let i=0;i<5;i++)used[i]+=cost[i];}
+ }
+ const meshes=[...d.meshes,a.extra],counts=[0,0,0,0,0],caps=[...d.capacity,1536];
+ function put(type,x,y,z,w,h,depth,col){const i=counts[type]++;if(i>=caps[type])throw Error('M2.6.1 parcel capacity');const m=meshes[type],v=m.instanceMatrix.array,k=i*16;v[k]=w;v[k+5]=h;v[k+10]=depth;v[k+12]=x;v[k+13]=y;v[k+14]=z;v[k+15]=1;const colors=m.userData.d261Colors||(m.userData.d261Colors=[]);if(colors[i]!==col){colors[i]=col;m.setColorAt(i,a.color.setHex(col));m.instanceColor.needsUpdate=true}}
+ for(const p of a.active){
+  // Existing terrain query in simulation space; roundabout surroundings are flat.
+  const terrainX=trackCenterAt(p.station)+p.lat,flat=!ElevationD36A.terrain?.visible;
+  const yAt=(dx,dz)=>flat?-.13:d362Ground(p.station-dz,terrainX+dx);
+  const pz=p.z-origin.z+3;
+  if(p.surface){const y=yAt(0,0),corners=[yAt(-9,-9),yAt(9,-9),yAt(-9,9),yAt(9,9)];if(Math.max(...corners)-Math.min(...corners)<.16)put(4,p.x,Math.min(...corners)-.05,pz,18,.16,18,p.surface)}
+  for(const o of p.items){const x=p.x+o.x,z=pz+o.z,y=yAt(o.x,o.z);
+   if(o.type===0){const base=Math.min(y,yAt(o.x-o.w/2,o.z-o.depth/2),yAt(o.x+o.w/2,o.z-o.depth/2),yAt(o.x-o.w/2,o.z+o.depth/2),yAt(o.x+o.w/2,o.z+o.depth/2));put(0,x,(base+y+o.h)/2,z,o.w,y+o.h-base,o.depth,o.col);put(1,x,y+o.h+.35,z,o.w*(o.roof?.97:.72),.7,o.depth*.82,0xffffff);put(1,x,yAt(o.x,o.z+o.depth/2)+1.1,z+o.depth/2+.035,1.3,2.2,.08,0xffffff);}
+   else if(o.type===2){put(2,x,y+o.h*.34,z,.36,o.h*.68,.36,0xffffff);put(3,x,y+o.h*.68,z,o.w,o.h*.3,o.w*.92,o.col);put(3,x+.6,y+o.h*.84,z-.35,o.w*.72,o.h*.21,o.w*.76,0x6e8251)}
+   else if(o.type===4)put(3,x,y+o.h*.851,z,o.w,o.h,o.depth,o.col);
+   else put(4,x,y+o.y+o.h/2,z,o.w,o.h,o.depth,o.col);
+  }
+ }
+ for(let i=0;i<meshes.length;i++){const m=meshes[i];m.count=counts[i];m.visible=counts[i]>0;m.instanceMatrix.needsUpdate=true}
+ m24Decor();
+}
+
 function d362Update(){
+ if(MobileM1.enabled)return d261Update();
  d362Init();const d=DepthD362,counts=[0,0,0,0];
  function put(type,x,y,z,sx,sy,sz,col){const i=counts[type]++,m=d.meshes[type];if(i>=d.capacity[type])throw Error('D3.6B.2 instance capacity');const a=m.instanceMatrix.array,k=i*16;a[k]=sx;a[k+5]=sy;a[k+10]=sz;a[k+12]=x;a[k+13]=y;a[k+14]=z;a[k+15]=1;if(col!==undefined){const colors=m.userData.d362Colors||(m.userData.d362Colors=[]);if(colors[i]!==col){colors[i]=col;m.setColorAt(i,d.color.setHex(col));m.instanceColor.needsUpdate=true}}}
  for(const s of scenery)for(const o of d362Layout(s)){
